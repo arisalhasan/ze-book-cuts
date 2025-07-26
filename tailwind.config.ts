@@ -52,6 +52,17 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				// Barbershop specific colors
+				gold: {
+					DEFAULT: 'hsl(var(--gold))',
+					muted: 'hsl(var(--gold-muted))'
+				},
+				charcoal: {
+					DEFAULT: 'hsl(var(--charcoal))',
+					light: 'hsl(var(--charcoal-light))'
+				},
+				success: 'hsl(var(--success))',
+				warning: 'hsl(var(--warning))',
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',

@@ -2,41 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Ze Elias Barbershop Design System - Professional barbershop aesthetics with gold accents */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Barbershop color palette */
+    --background: 220 13% 7%;
+    --foreground: 40 5% 96%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 220 13% 9%;
+    --card-foreground: 40 5% 96%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 220 13% 9%;
+    --popover-foreground: 40 5% 96%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 45 93% 58%;
+    --primary-foreground: 220 13% 7%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 220 13% 15%;
+    --secondary-foreground: 40 5% 96%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 13% 12%;
+    --muted-foreground: 220 8% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 45 93% 58%;
+    --accent-foreground: 220 13% 7%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 40 5% 96%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 220 13% 18%;
+    --input: 220 13% 15%;
+    --ring: 45 93% 58%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* Barbershop specific tokens */
+    --gold: 45 93% 58%;
+    --gold-muted: 45 70% 48%;
+    --charcoal: 220 13% 7%;
+    --charcoal-light: 220 13% 12%;
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+
+    /* Gradients */
+    --gradient-gold: linear-gradient(135deg, hsl(45 93% 58%), hsl(45 70% 48%));
+    --gradient-dark: linear-gradient(135deg, hsl(220 13% 9%), hsl(220 13% 12%));
+
+    /* Shadows */
+    --shadow-gold: 0 10px 30px -5px hsl(45 93% 58% / 0.3);
+    --shadow-elegant: 0 20px 40px -15px hsl(220 13% 4% / 0.5);
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     --sidebar-background: 0 0% 98%;
 
