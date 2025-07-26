@@ -14,13 +14,90 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      bookings: {
+        Row: {
+          barber_id: string
+          booking_date: string
+          booking_time: string
+          country_code: string
+          created_at: string
+          id: string
+          is_verified: boolean
+          phone_number: string
+          services: string[]
+          total_price: number
+          updated_at: string
+          verification_code: string | null
+        }
+        Insert: {
+          barber_id: string
+          booking_date: string
+          booking_time: string
+          country_code?: string
+          created_at?: string
+          id?: string
+          is_verified?: boolean
+          phone_number: string
+          services: string[]
+          total_price: number
+          updated_at?: string
+          verification_code?: string | null
+        }
+        Update: {
+          barber_id?: string
+          booking_date?: string
+          booking_time?: string
+          country_code?: string
+          created_at?: string
+          id?: string
+          is_verified?: boolean
+          phone_number?: string
+          services?: string[]
+          total_price?: number
+          updated_at?: string
+          verification_code?: string | null
+        }
+        Relationships: []
+      }
+      verification_codes: {
+        Row: {
+          code: string
+          country_code: string
+          created_at: string
+          expires_at: string
+          id: string
+          is_used: boolean
+          phone_number: string
+        }
+        Insert: {
+          code: string
+          country_code: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          is_used?: boolean
+          phone_number: string
+        }
+        Update: {
+          code?: string
+          country_code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_used?: boolean
+          phone_number?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_expired_verification_codes: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

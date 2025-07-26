@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { format, isToday, isTomorrow, addDays, setHours, setMinutes, isAfter, startOfDay } from 'date-fns';
-import { CalendarIcon, Clock, User, Scissors } from 'lucide-react';
+import { CalendarIcon, Clock, User, Scissors, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Service {
   id: string;
@@ -32,12 +35,26 @@ const barbers: Barber[] = [
   { id: 'charalambos', name: 'Charalambos' },
 ];
 
+const countryCodes = [
+  { code: '+357', country: 'Cyprus' },
+  { code: '+30', country: 'Greece' },
+  { code: '+44', country: 'UK' },
+  { code: '+1', country: 'US/Canada' },
+  { code: '+49', country: 'Germany' },
+  { code: '+33', country: 'France' },
+];
+
 const BookingForm: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [selectedBarber, setSelectedBarber] = useState<string>('');
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  const [countryCode, setCountryCode] = useState<string>('+357');
+  const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [showVerification, setShowVerification] = useState<boolean>(false);
+  const [verificationCode, setVerificationCode] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const { toast } = useToast();
 
   // Business hours: 9 AM - 7 PM, closed Thursday & Sunday
@@ -46,7 +63,7 @@ const BookingForm: React.FC = () => {
     return day !== 0 && day !== 4; // 0 = Sunday, 4 = Thursday
   };
 
-  // Generate available time slots
+  // Generate available time slots in 30-minute intervals
   const generateTimeSlots = (date: Date): string[] => {
     const slots: string[] = [];
     const startHour = 9;
@@ -54,11 +71,16 @@ const BookingForm: React.FC = () => {
     const now = new Date();
     
     for (let hour = startHour; hour < endHour; hour++) {
-      const slotTime = setMinutes(setHours(date, hour), 0);
+      // Add full hour slot
+      const hourSlot = setMinutes(setHours(date, hour), 0);
+      if (isAfter(hourSlot, now)) {
+        slots.push(format(hourSlot, 'HH:mm'));
+      }
       
-      // Only show slots that are in the future
-      if (isAfter(slotTime, now)) {
-        slots.push(format(slotTime, 'HH:mm'));
+      // Add 30-minute slot
+      const halfHourSlot = setMinutes(setHours(date, hour), 30);
+      if (isAfter(halfHourSlot, now)) {
+        slots.push(format(halfHourSlot, 'HH:mm'));
       }
     }
     
@@ -89,34 +111,131 @@ const BookingForm: React.FC = () => {
     return total + (service?.price || 0);
   }, 0);
 
-  // Handle booking submission
-  const handleBooking = () => {
-    if (!selectedDate || !selectedTime || !selectedBarber || selectedServices.length === 0) {
+  // Send SMS verification code
+  const sendVerificationCode = async () => {
+    if (!selectedDate || !selectedTime || !selectedBarber || selectedServices.length === 0 || !phoneNumber.trim()) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all booking details.",
+        description: "Please fill in all booking details and phone number.",
         variant: "destructive",
       });
       return;
     }
 
-    const selectedServiceNames = selectedServices.map(id => 
-      services.find(s => s.id === id)?.name
-    ).join(', ');
+    if (phoneNumber.trim().length < 8) {
+      toast({
+        title: "Invalid Phone Number",
+        description: "Please enter a valid phone number.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const barberName = barbers.find(b => b.id === selectedBarber)?.name;
+    setIsLoading(true);
 
-    toast({
-      title: "Booking Confirmed! ✂️",
-      description: `Your appointment with ${barberName} on ${format(selectedDate, 'EEEE, MMMM d')} at ${selectedTime} for ${selectedServiceNames} (€${totalPrice}) has been booked successfully!`,
-      duration: 6000,
-    });
+    try {
+      const { data, error } = await supabase.functions.invoke('send-sms', {
+        body: {
+          phoneNumber: phoneNumber.trim(),
+          countryCode: countryCode,
+        },
+      });
 
-    // Reset form
-    setSelectedDate(undefined);
-    setSelectedTime('');
-    setSelectedBarber('');
-    setSelectedServices([]);
+      if (error) {
+        throw error;
+      }
+
+      if (data.success) {
+        setShowVerification(true);
+        toast({
+          title: "Verification Code Sent! 📱",
+          description: "Please check your phone for a 6-digit verification code.",
+          duration: 5000,
+        });
+      } else {
+        throw new Error(data.error || 'Failed to send verification code');
+      }
+    } catch (error: any) {
+      console.error('SMS error:', error);
+      toast({
+        title: "SMS Error",
+        description: error.message || "Failed to send verification code. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Verify code and complete booking
+  const verifyAndBooking = async () => {
+    if (verificationCode.length !== 6) {
+      toast({
+        title: "Invalid Code",
+        description: "Please enter the complete 6-digit verification code.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const bookingData = {
+        barberId: selectedBarber,
+        services: selectedServices,
+        bookingDate: format(selectedDate!, 'yyyy-MM-dd'),
+        bookingTime: selectedTime,
+        totalPrice: totalPrice,
+      };
+
+      const { data, error } = await supabase.functions.invoke('verify-code', {
+        body: {
+          phoneNumber: phoneNumber.trim(),
+          countryCode: countryCode,
+          code: verificationCode,
+          bookingData: bookingData,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.success) {
+        const selectedServiceNames = selectedServices.map(id => 
+          services.find(s => s.id === id)?.name
+        ).join(', ');
+
+        const barberName = barbers.find(b => b.id === selectedBarber)?.name;
+
+        toast({
+          title: "Booking Confirmed! ✂️",
+          description: `Your appointment with ${barberName} on ${format(selectedDate!, 'EEEE, MMMM d')} at ${selectedTime} for ${selectedServiceNames} (€${totalPrice}) has been booked successfully!`,
+          duration: 8000,
+        });
+
+        // Reset form
+        setSelectedDate(undefined);
+        setSelectedTime('');
+        setSelectedBarber('');
+        setSelectedServices([]);
+        setPhoneNumber('');
+        setVerificationCode('');
+        setShowVerification(false);
+      } else {
+        throw new Error(data.error || 'Failed to verify code');
+      }
+    } catch (error: any) {
+      console.error('Verification error:', error);
+      toast({
+        title: "Verification Failed",
+        description: error.message || "Invalid or expired verification code. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const formatDateLabel = (date: Date | undefined) => {
@@ -247,6 +366,66 @@ const BookingForm: React.FC = () => {
           </div>
         </div>
 
+        {/* Phone Number Input */}
+        {!showVerification && (
+          <div className="space-y-3">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Phone className="h-4 w-4 text-primary" />
+              Phone Number
+            </label>
+            <div className="flex gap-2">
+              <Select value={countryCode} onValueChange={setCountryCode}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {countryCodes.map((country) => (
+                    <SelectItem key={country.code} value={country.code}>
+                      {country.code} {country.country}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="tel"
+                placeholder="Enter phone number"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                className="flex-1"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Verification Code Input */}
+        {showVerification && (
+          <div className="space-y-3">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Phone className="h-4 w-4 text-primary" />
+              Enter Verification Code
+            </label>
+            <div className="flex flex-col items-center space-y-4">
+              <p className="text-sm text-muted-foreground text-center">
+                We sent a 6-digit code to {countryCode} {phoneNumber}
+              </p>
+              <InputOTP
+                maxLength={6}
+                value={verificationCode}
+                onChange={setVerificationCode}
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+          </div>
+        )}
+
         {/* Price Summary */}
         {selectedServices.length > 0 && (
           <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
@@ -257,14 +436,37 @@ const BookingForm: React.FC = () => {
           </div>
         )}
 
-        {/* Book Button */}
-        <Button 
-          onClick={handleBooking}
-          className="w-full h-12 text-lg font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
-          disabled={!selectedDate || !selectedTime || !selectedBarber || selectedServices.length === 0}
-        >
-          Book Appointment
-        </Button>
+        {/* Action Buttons */}
+        {!showVerification ? (
+          <Button 
+            onClick={sendVerificationCode}
+            className="w-full h-12 text-lg font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
+            disabled={!selectedDate || !selectedTime || !selectedBarber || selectedServices.length === 0 || !phoneNumber.trim() || isLoading}
+          >
+            {isLoading ? "Sending Code..." : "Send Verification Code"}
+          </Button>
+        ) : (
+          <div className="space-y-3">
+            <Button 
+              onClick={verifyAndBooking}
+              className="w-full h-12 text-lg font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
+              disabled={verificationCode.length !== 6 || isLoading}
+            >
+              {isLoading ? "Verifying..." : "Verify & Book Appointment"}
+            </Button>
+            <Button 
+              onClick={() => {
+                setShowVerification(false);
+                setVerificationCode('');
+              }}
+              variant="outline"
+              className="w-full"
+              disabled={isLoading}
+            >
+              Change Phone Number
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
