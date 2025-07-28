@@ -36,33 +36,33 @@ const barbers: { [key: string]: string } = {
 const BookingsAdmin: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   // Check authentication on component mount
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem('adminAuthenticated');
-    if (!isAuthenticated) {
-      navigate('/admin/login');
-    }
-  }, [navigate]);
+  if (selectedDate) {
+    setIsLoading(true);
+    fetchBookings();
+  }
+}, [selectedDate]);
 
-  const fetchBookings = async () => {
+    const fetchBookings = async () => {
+    if (!selectedDate) return;
+  
     try {
       const { data, error } = await supabase
         .from('bookings')
         .select('*')
         .eq('is_verified', true)
-        .order('booking_date', { ascending: true })
+        .eq('booking_date', selectedDate)
         .order('booking_time', { ascending: true });
-
-      if (error) {
-        throw error;
-      }
-
+  
+      if (error) throw error;
+  
       setBookings(data || []);
     } catch (error: any) {
-      console.error('Error fetching bookings:', error);
       toast({
         title: "Error",
         description: "Failed to load bookings. Please try again.",
@@ -72,6 +72,7 @@ const BookingsAdmin: React.FC = () => {
       setIsLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchBookings();
@@ -133,6 +134,15 @@ const handleDelete = async (bookingId: string) => {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto">
+        <div className="max-w-sm mb-6">
+          <label className="block mb-2 font-medium">Select a Date</label>
+          <input 
+            type="date" 
+            className="w-full border rounded px-3 py-2" 
+            value={selectedDate || ''} 
+            onChange={(e) => setSelectedDate(e.target.value)} 
+          />
+        </div>
         <Card>
           <CardHeader className="text-center">
             <div className="flex items-center justify-between mb-2">
