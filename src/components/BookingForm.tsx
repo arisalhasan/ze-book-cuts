@@ -84,36 +84,39 @@ const BookingForm: React.FC = () => {
       }
     }
     
-    // If barber is selected, filter out booked slots
-    if (barberId) {
-      try {
-        const { data: bookedSlots, error } = await supabase
-          .from('bookings')
-          .select('booking_time')
-          .eq('barber_id', barberId)
-          .eq('booking_date', format(date, 'yyyy-MM-dd'))
-          .eq('is_verified', true);
+    // Filter out slots that are already booked by the selected barber (or any barber if none selected)
+    try {
+      let query = supabase
+        .from('bookings')
+        .select('booking_time')
+        .eq('booking_date', format(date, 'yyyy-MM-dd'))
+        .eq('is_verified', true);
+      
+      // If a specific barber is selected, only check their bookings
+      // If no barber selected, check all barbers to show only truly available slots
+      if (barberId) {
+        query = query.eq('barber_id', barberId);
+      }
 
-        if (error) {
-          console.error('Error fetching booked slots:', error);
-          return slots;
-        }
+      const { data: bookedSlots, error } = await query;
 
-        const bookedTimes = bookedSlots?.map(slot => slot.booking_time) || [];
-        return slots.filter(slot => !bookedTimes.includes(slot));
-      } catch (error) {
-        console.error('Error filtering slots:', error);
+      if (error) {
+        console.error('Error fetching booked slots:', error);
         return slots;
       }
+
+      const bookedTimes = bookedSlots?.map(slot => slot.booking_time) || [];
+      return slots.filter(slot => !bookedTimes.includes(slot));
+    } catch (error) {
+      console.error('Error filtering slots:', error);
+      return slots;
     }
-    
-    return slots;
   };
 
   // Update available times when date or barber changes
   useEffect(() => {
     const updateAvailableTimes = async () => {
-      if (selectedDate && selectedBarber) {
+      if (selectedDate) {
         const times = await generateTimeSlots(selectedDate, selectedBarber);
         setAvailableTimes(times);
         setSelectedTime(''); // Reset time selection
