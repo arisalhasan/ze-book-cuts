@@ -42,11 +42,15 @@ const BookingsAdmin: React.FC = () => {
 
   // Check authentication on component mount
   useEffect(() => {
-  if (selectedDate) {
-    setIsLoading(true);
-    fetchBookings();
+  const isAuthenticated = localStorage.getItem('adminAuthenticated');
+  if (!isAuthenticated) {
+    navigate('/admin/login');
+  } else {
+    const today = new Date().toISOString().split('T')[0];
+    setSelectedDate(today); // ✅ default to today
   }
-}, [selectedDate]);
+}, [navigate]);
+
 
     const fetchBookings = async () => {
     if (!selectedDate) return;
@@ -120,7 +124,7 @@ const handleDelete = async (bookingId: string) => {
   }
 };
 
-  if (isLoading) {
+  if (isLoading && selectedDate) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
