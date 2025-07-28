@@ -117,10 +117,9 @@ const BookingForm: React.FC = () => {
         const times = await generateTimeSlots(selectedDate, selectedBarber);
         setAvailableTimes(times);
         setSelectedTime(''); // Reset time selection
-      } else if (selectedDate) {
-        const times = await generateTimeSlots(selectedDate, '');
-        setAvailableTimes(times);
-        setSelectedTime(''); // Reset time selection
+      } else {
+        setAvailableTimes([]);
+        setSelectedTime('');
       }
     };
 
@@ -207,6 +206,38 @@ const BookingForm: React.FC = () => {
         variant: "destructive",
       });
       return;
+    }
+
+    // Check if slot is still available before booking
+    if (selectedDate && selectedBarber && selectedTime) {
+      try {
+        const { data: existingBooking, error } = await supabase
+          .from('bookings')
+          .select('id')
+          .eq('barber_id', selectedBarber)
+          .eq('booking_date', format(selectedDate, 'yyyy-MM-dd'))
+          .eq('booking_time', selectedTime)
+          .eq('is_verified', true);
+
+        if (error) {
+          console.error('Error checking existing booking:', error);
+        } else if (existingBooking && existingBooking.length > 0) {
+          toast({
+            title: "Time Slot Unavailable",
+            description: "This time slot has already been booked. Please select a different time.",
+            variant: "destructive",
+          });
+          // Refresh available times
+          const times = await generateTimeSlots(selectedDate, selectedBarber);
+          setAvailableTimes(times);
+          setSelectedTime('');
+          setShowVerification(false);
+          setVerificationCode('');
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking slot availability:', error);
+      }
     }
 
     setIsLoading(true);
@@ -325,32 +356,6 @@ const BookingForm: React.FC = () => {
           </Popover>
         </div>
 
-        {/* Time Selection */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" />
-            Select Time
-          </label>
-          <Select value={selectedTime} onValueChange={setSelectedTime} disabled={!selectedDate}>
-            <SelectTrigger>
-              <SelectValue placeholder="Choose appointment time" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableTimes.length === 0 ? (
-                <SelectItem value="no-slots" disabled>
-                  No available slots for this day
-                </SelectItem>
-              ) : (
-                availableTimes.map((time) => (
-                  <SelectItem key={time} value={time}>
-                    {time}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-
         {/* Barber Selection */}
         <div className="space-y-2">
           <label className="text-sm font-medium flex items-center gap-2">
@@ -367,6 +372,32 @@ const BookingForm: React.FC = () => {
                   {barber.name}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Time Selection */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" />
+            Select Time
+          </label>
+          <Select value={selectedTime} onValueChange={setSelectedTime} disabled={!selectedDate || !selectedBarber}>
+            <SelectTrigger>
+              <SelectValue placeholder={!selectedBarber ? "Select a barber first" : "Choose appointment time"} />
+            </SelectTrigger>
+            <SelectContent>
+              {availableTimes.length === 0 ? (
+                <SelectItem value="no-slots" disabled>
+                  {!selectedBarber ? "Select a barber first" : "No available slots for this day"}
+                </SelectItem>
+              ) : (
+                availableTimes.map((time) => (
+                  <SelectItem key={time} value={time}>
+                    {time}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>
