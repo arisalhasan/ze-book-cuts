@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Calendar, Clock, User, Scissors, Phone, Euro } from 'lucide-react';
+import { Calendar, Clock, User, Scissors, Phone, Euro, LogOut } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -35,6 +37,15 @@ const BookingsAdmin: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Check authentication on component mount
+  useEffect(() => {
+    const isAuthenticated = localStorage.getItem('adminAuthenticated');
+    if (!isAuthenticated) {
+      navigate('/admin/login');
+    }
+  }, [navigate]);
 
   const fetchBookings = async () => {
     try {
@@ -74,6 +85,11 @@ const BookingsAdmin: React.FC = () => {
     return barbers[barberId] || barberId;
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('adminAuthenticated');
+    navigate('/admin/login');
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -90,11 +106,23 @@ const BookingsAdmin: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <Card>
           <CardHeader className="text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Scissors className="h-8 w-8 text-primary" />
-              <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-gold-muted bg-clip-text text-transparent">
-                Bookings Dashboard
-              </CardTitle>
+            <div className="flex items-center justify-between mb-2">
+              <div></div>
+              <div className="flex items-center gap-2">
+                <Scissors className="h-8 w-8 text-primary" />
+                <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-gold-muted bg-clip-text text-transparent">
+                  Bookings Dashboard
+                </CardTitle>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleLogout}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
             </div>
             <CardDescription className="text-lg">
               View and manage all confirmed appointments
