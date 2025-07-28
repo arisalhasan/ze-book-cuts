@@ -89,6 +89,35 @@ const BookingsAdmin: React.FC = () => {
     localStorage.removeItem('adminAuthenticated');
     navigate('/admin/login');
   };
+const handleDelete = async (bookingId: string) => {
+  const confirmDelete = window.confirm("Are you sure you want to delete this booking?");
+  if (!confirmDelete) return;
+
+  try {
+    const { error } = await supabase
+      .from('bookings')
+      .delete()
+      .eq('id', bookingId);
+
+    if (error) {
+      throw error;
+    }
+
+    toast({
+      title: "Booking Deleted",
+      description: "The booking has been successfully removed.",
+    });
+
+    setBookings((prev) => prev.filter(b => b.id !== bookingId));
+  } catch (err) {
+    console.error("Failed to delete booking:", err);
+    toast({
+      title: "Error",
+      description: "Failed to delete the booking. Please try again.",
+      variant: "destructive",
+    });
+  }
+};
 
   if (isLoading) {
     return (
@@ -150,6 +179,7 @@ const BookingsAdmin: React.FC = () => {
                       <TableHead>Customer</TableHead>
                       <TableHead className="text-right">Price</TableHead>
                       <TableHead className="w-[100px]">Status</TableHead>
+                      <TableHead className="w-[100px]">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -199,6 +229,14 @@ const BookingsAdmin: React.FC = () => {
                       </TableRow>
                     ))}
                   </TableBody>
+                  <TableCell>
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      onClick={() => handleDelete(booking.id)}
+                    >
+                      Delete
+                    </Button>
                 </Table>
               </div>
             )}
