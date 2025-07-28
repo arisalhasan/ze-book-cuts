@@ -79,8 +79,11 @@ const BookingsAdmin: React.FC = () => {
 
 
   useEffect(() => {
+  if (selectedDate) {
+    setIsLoading(true);
     fetchBookings();
-  }, []);
+  }
+}, [selectedDate]);
 
   const getServiceNames = (serviceIds: string[]) => {
     return serviceIds.map(id => services[id] || id).join(', ');
