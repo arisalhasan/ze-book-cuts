@@ -63,8 +63,8 @@ const BookingForm: React.FC = () => {
     return day !== 0 && day !== 4; // 0 = Sunday, 4 = Thursday
   };
 
-  // Generate available time slots in 30-minute intervals
-  const generateTimeSlots = (date: Date): string[] => {
+  // Generate available time slots in 30-minute intervals, excluding booked slots
+  const generateTimeSlots = async (date: Date, barberId: string): Promise<string[]> => {
     const slots: string[] = [];
     const startHour = 9;
     const endHour = 19;
@@ -84,17 +84,48 @@ const BookingForm: React.FC = () => {
       }
     }
     
+    // If barber is selected, filter out booked slots
+    if (barberId) {
+      try {
+        const { data: bookedSlots, error } = await supabase
+          .from('bookings')
+          .select('booking_time')
+          .eq('barber_id', barberId)
+          .eq('booking_date', format(date, 'yyyy-MM-dd'))
+          .eq('is_verified', true);
+
+        if (error) {
+          console.error('Error fetching booked slots:', error);
+          return slots;
+        }
+
+        const bookedTimes = bookedSlots?.map(slot => slot.booking_time) || [];
+        return slots.filter(slot => !bookedTimes.includes(slot));
+      } catch (error) {
+        console.error('Error filtering slots:', error);
+        return slots;
+      }
+    }
+    
     return slots;
   };
 
-  // Update available times when date changes
+  // Update available times when date or barber changes
   useEffect(() => {
-    if (selectedDate) {
-      const times = generateTimeSlots(selectedDate);
-      setAvailableTimes(times);
-      setSelectedTime(''); // Reset time selection
-    }
-  }, [selectedDate]);
+    const updateAvailableTimes = async () => {
+      if (selectedDate && selectedBarber) {
+        const times = await generateTimeSlots(selectedDate, selectedBarber);
+        setAvailableTimes(times);
+        setSelectedTime(''); // Reset time selection
+      } else if (selectedDate) {
+        const times = await generateTimeSlots(selectedDate, '');
+        setAvailableTimes(times);
+        setSelectedTime(''); // Reset time selection
+      }
+    };
+
+    updateAvailableTimes();
+  }, [selectedDate, selectedBarber]);
 
   // Handle service selection
   const handleServiceToggle = (serviceId: string) => {
