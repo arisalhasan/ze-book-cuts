@@ -226,18 +226,18 @@ const handleDelete = async (bookingId: string) => {
                             Confirmed
                           </Badge>
                         </TableCell>
-                        </TableBody>
-                  <TableCell>
-                    <Button 
-                      variant="destructive" 
-                      size="sm" 
-                      onClick={() => handleDelete(booking.id)}
-                    >
-                      Delete
-                    </Button>
-                      </TableRow>
-                    ))}
-                  
+                        <TableCell>
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            onClick={() => handleDelete(booking.id)}
+                          >
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
                 </Table>
               </div>
             )}
