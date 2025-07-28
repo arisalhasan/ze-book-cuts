@@ -2,9 +2,6 @@ import Hero from '@/components/Hero';
 import BookingForm from '@/components/BookingForm';
 import BusinessInfo from '@/components/BusinessInfo';
 
-      {/* Hero Section */}
-      <Hero />
-      
       {/* Business Information */}
       <section className="py-12 px-4">
         <BusinessInfo />
