@@ -226,9 +226,7 @@ const handleDelete = async (bookingId: string) => {
                             Confirmed
                           </Badge>
                         </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
+                        </TableBody>
                   <TableCell>
                     <Button 
                       variant="destructive" 
@@ -237,6 +235,9 @@ const handleDelete = async (bookingId: string) => {
                     >
                       Delete
                     </Button>
+                      </TableRow>
+                    ))}
+                  
                 </Table>
               </div>
             )}
