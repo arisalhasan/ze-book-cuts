@@ -2,6 +2,12 @@ import Hero from '@/components/Hero';
 import BookingForm from '@/components/BookingForm';
 import BusinessInfo from '@/components/BusinessInfo';
 
+const Index = () => {
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Hero Section */}
+      <Hero />
+      
       {/* Business Information */}
       <section className="py-12 px-4">
         <BusinessInfo />
