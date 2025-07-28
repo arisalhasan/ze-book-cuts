@@ -1,6 +1,27 @@
 import Hero from '@/components/Hero';
 import BookingForm from '@/components/BookingForm';
 import BusinessInfo from '@/components/BusinessInfo';
+import { useState } from 'react';
+import Hero from '@/components/Hero';
+import BookingForm from '@/components/BookingForm';
+import BusinessInfo from '@/components/BusinessInfo';
+
+const Index = () => {
+  // Temporary bookings data storage
+  const [bookings, setBookings] = useState([
+    { id: 1, name: "John Doe", date: "2023-11-15", service: "Haircut" },
+    { id: 2, name: "Jane Smith", date: "2023-11-16", service: "Beard Trim" }
+  ]);
+
+  // Simple delete function
+  const handleDelete = (id) => {
+    if (confirm("Delete this booking?")) {
+      setBookings(bookings.filter(booking => booking.id !== id));
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
 
 const Index = () => {
   return (
