@@ -142,10 +142,10 @@ const handleDelete = async (bookingId: string) => {
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto">
         <div className="max-w-sm mb-6">
-          <label className="block mb-2 font-medium">Select a Date</label>
+          <label className="block mb-2 font-medium text-foreground">Select a Date</label>
           <input 
             type="date" 
-            className="w-full border rounded px-3 py-2" 
+            className="w-full border border-border bg-input text-foreground rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring" 
             value={selectedDate || ''} 
             onChange={(e) => setSelectedDate(e.target.value)} 
           />

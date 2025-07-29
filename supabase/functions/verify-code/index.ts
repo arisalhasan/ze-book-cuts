@@ -88,7 +88,6 @@ const handler = async (req: Request): Promise<Response> => {
         booking_date: bookingData.bookingDate,
         booking_time: bookingData.bookingTime,
         total_price: bookingData.totalPrice,
-        verification_code: code,
         is_verified: true,
       })
       .select()
