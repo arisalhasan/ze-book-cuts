@@ -84,28 +84,25 @@ const BookingForm: React.FC = () => {
       }
     }
     
-    // Filter out slots that are already booked by the selected barber (or any barber if none selected)
+    // Filter out slots that are already booked by the selected barber
     try {
-      let query = supabase
+      const { data: bookedSlots, error } = await supabase
         .from('bookings')
-        .select('booking_time')
+        .select('booking_time, barber_id')
         .eq('booking_date', format(date, 'yyyy-MM-dd'))
         .eq('is_verified', true);
-      
-      // If a specific barber is selected, only check their bookings
-      // If no barber selected, check all barbers to show only truly available slots
-      if (barberId) {
-        query = query.eq('barber_id', barberId);
-      }
-
-      const { data: bookedSlots, error } = await query;
 
       if (error) {
         console.error('Error fetching booked slots:', error);
         return slots;
       }
 
-      const bookedTimes = bookedSlots?.map(slot => slot.booking_time) || [];
+      // If a specific barber is selected, only filter their booked slots
+      // If no barber selected, filter all booked slots for that time
+      const bookedTimes = bookedSlots?.filter(slot => 
+        !barberId || slot.barber_id === barberId
+      ).map(slot => slot.booking_time) || [];
+      
       return slots.filter(slot => !bookedTimes.includes(slot));
     } catch (error) {
       console.error('Error filtering slots:', error);

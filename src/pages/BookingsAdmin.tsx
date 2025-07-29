@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Calendar, Clock, User, Scissors, Phone, Euro, LogOut } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, User, Scissors, Phone, Euro, LogOut } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -141,14 +144,31 @@ const handleDelete = async (bookingId: string) => {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto">
-        <div className="max-w-sm mb-6">
-          <label className="block mb-2 font-medium text-foreground">Select a Date</label>
-          <input 
-            type="date" 
-            className="w-full border border-border bg-input text-foreground rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring" 
-            value={selectedDate || ''} 
-            onChange={(e) => setSelectedDate(e.target.value)} 
-          />
+        <div className="mb-6">
+          <label className="block mb-2 text-sm font-medium text-foreground">Select Date</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-[240px] justify-start text-left font-normal",
+                  !selectedDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {selectedDate ? format(new Date(selectedDate), "PPP") : "Pick a date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate ? new Date(selectedDate) : undefined}
+                onSelect={(date) => setSelectedDate(date ? format(date, 'yyyy-MM-dd') : null)}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
         </div>
         <Card>
           <CardHeader className="text-center">
@@ -178,7 +198,7 @@ const handleDelete = async (bookingId: string) => {
           <CardContent>
             {bookings.length === 0 ? (
               <div className="text-center py-12">
-                <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                <CalendarIcon className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">No Bookings Found</h3>
                 <p className="text-muted-foreground">
                   There are no confirmed appointments at the moment.
@@ -204,7 +224,7 @@ const handleDelete = async (bookingId: string) => {
                       <TableRow key={booking.id}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-primary" />
+                            <CalendarIcon className="h-4 w-4 text-primary" />
                             {format(new Date(booking.booking_date), 'MMM d')}
                           </div>
                         </TableCell>
