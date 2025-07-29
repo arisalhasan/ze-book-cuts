@@ -55,6 +55,7 @@ const BookingForm: React.FC = () => {
   const [showVerification, setShowVerification] = useState<boolean>(false);
   const [verificationCode, setVerificationCode] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoadingTimes, setIsLoadingTimes] = useState<boolean>(false);
   const { toast } = useToast();
 
   // Business hours: 9 AM - 7 PM, closed Thursday & Sunday
@@ -84,7 +85,7 @@ const BookingForm: React.FC = () => {
       }
     }
     
-    // Filter out slots that are already booked by the selected barber
+    // Filter out slots that are already booked
     try {
       const { data: bookedSlots, error } = await supabase
         .from('bookings')
@@ -97,10 +98,9 @@ const BookingForm: React.FC = () => {
         return slots;
       }
 
-      // If a specific barber is selected, only filter their booked slots
-      // If no barber selected, filter all booked slots for that time
+      // Filter based on barber selection
       const bookedTimes = bookedSlots?.filter(slot => 
-        !barberId || slot.barber_id === barberId
+        slot.barber_id === barberId
       ).map(slot => slot.booking_time) || [];
       
       return slots.filter(slot => !bookedTimes.includes(slot));
@@ -113,10 +113,27 @@ const BookingForm: React.FC = () => {
   // Update available times when date or barber changes
   useEffect(() => {
     const updateAvailableTimes = async () => {
-      if (selectedDate) {
-        const times = await generateTimeSlots(selectedDate, selectedBarber);
-        setAvailableTimes(times);
-        setSelectedTime(''); // Reset time selection
+      if (selectedDate && selectedBarber) {
+        setIsLoadingTimes(true);
+        try {
+          const times = await generateTimeSlots(selectedDate, selectedBarber);
+          setAvailableTimes(times);
+          
+          // If currently selected time is no longer available, clear it
+          if (selectedTime && !times.includes(selectedTime)) {
+            setSelectedTime('');
+            toast({
+              title: "Time Updated",
+              description: "Your selected time is no longer available. Please choose another time.",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          console.error('Error updating available times:', error);
+          setAvailableTimes([]);
+        } finally {
+          setIsLoadingTimes(false);
+        }
       } else {
         setAvailableTimes([]);
         setSelectedTime('');
@@ -161,6 +178,23 @@ const BookingForm: React.FC = () => {
       return;
     }
 
+    // Final check that the selected time is still available before sending SMS
+    try {
+      const currentAvailableTimes = await generateTimeSlots(selectedDate, selectedBarber);
+      if (!currentAvailableTimes.includes(selectedTime)) {
+        toast({
+          title: "Time Slot Unavailable",
+          description: "This time slot has just been booked. Please select a different time.",
+          variant: "destructive",
+        });
+        setAvailableTimes(currentAvailableTimes);
+        setSelectedTime('');
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking availability before SMS:', error);
+    }
+
     setIsLoading(true);
 
     try {
@@ -197,7 +231,7 @@ const BookingForm: React.FC = () => {
     }
   };
 
-  // Verify code and complete booking
+  // Verify code and complete booking with enhanced double booking prevention
   const verifyAndBooking = async () => {
     if (verificationCode.length !== 6) {
       toast({
@@ -208,41 +242,40 @@ const BookingForm: React.FC = () => {
       return;
     }
 
-    // Check if slot is still available before booking
-    if (selectedDate && selectedBarber && selectedTime) {
-      try {
-        const { data: existingBooking, error } = await supabase
-          .from('bookings')
-          .select('id')
-          .eq('barber_id', selectedBarber)
-          .eq('booking_date', format(selectedDate, 'yyyy-MM-dd'))
-          .eq('booking_time', selectedTime)
-          .eq('is_verified', true);
-
-        if (error) {
-          console.error('Error checking existing booking:', error);
-        } else if (existingBooking && existingBooking.length > 0) {
-          toast({
-            title: "Time Slot Unavailable",
-            description: "This time slot has already been booked. Please select a different time.",
-            variant: "destructive",
-          });
-          // Refresh available times
-          const times = await generateTimeSlots(selectedDate, selectedBarber);
-          setAvailableTimes(times);
-          setSelectedTime('');
-          setShowVerification(false);
-          setVerificationCode('');
-          return;
-        }
-      } catch (error) {
-        console.error('Error checking slot availability:', error);
-      }
-    }
-
     setIsLoading(true);
 
     try {
+      // CRITICAL: Final availability check right before booking
+      const { data: existingBooking, error: checkError } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('barber_id', selectedBarber)
+        .eq('booking_date', format(selectedDate!, 'yyyy-MM-dd'))
+        .eq('booking_time', selectedTime)
+        .eq('is_verified', true);
+
+      if (checkError) {
+        throw new Error('Error checking slot availability: ' + checkError.message);
+      }
+
+      if (existingBooking && existingBooking.length > 0) {
+        toast({
+          title: "Booking Failed ❌",
+          description: "This time slot has just been booked by someone else. Please select a different time.",
+          variant: "destructive",
+        });
+        
+        // Refresh available times and reset form
+        const times = await generateTimeSlots(selectedDate!, selectedBarber);
+        setAvailableTimes(times);
+        setSelectedTime('');
+        setShowVerification(false);
+        setVerificationCode('');
+        setIsLoading(false);
+        return;
+      }
+
+      // Proceed with booking if slot is still available
       const bookingData = {
         barberId: selectedBarber,
         services: selectedServices,
@@ -289,10 +322,10 @@ const BookingForm: React.FC = () => {
         throw new Error(data.error || 'Failed to verify code');
       }
     } catch (error: any) {
-      console.error('Verification error:', error);
+      console.error('Booking error:', error);
       toast({
-        title: "Verification Failed",
-        description: error.message || "Invalid or expired verification code. Please try again.",
+        title: "Booking Failed",
+        description: error.message || "Something went wrong. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -338,200 +371,4 @@ const BookingForm: React.FC = () => {
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {formatDateLabel(selectedDate)}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                disabled={(date) => 
-                  date < startOfDay(new Date()) || !isBusinessDay(date)
-                }
-                initialFocus
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {/* Barber Selection */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium flex items-center gap-2">
-            <User className="h-4 w-4 text-primary" />
-            Choose Your Barber
-          </label>
-          <Select value={selectedBarber} onValueChange={setSelectedBarber}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select a barber" />
-            </SelectTrigger>
-            <SelectContent>
-              {barbers.map((barber) => (
-                <SelectItem key={barber.id} value={barber.id}>
-                  {barber.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Time Selection */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" />
-            Select Time
-          </label>
-          <Select value={selectedTime} onValueChange={setSelectedTime} disabled={!selectedDate || !selectedBarber}>
-            <SelectTrigger>
-              <SelectValue placeholder={!selectedBarber ? "Select a barber first" : "Choose appointment time"} />
-            </SelectTrigger>
-            <SelectContent>
-              {availableTimes.length === 0 ? (
-                <SelectItem value="no-slots" disabled>
-                  {!selectedBarber ? "Select a barber first" : "No available slots for this day"}
-                </SelectItem>
-              ) : (
-                availableTimes.map((time) => (
-                  <SelectItem key={time} value={time}>
-                    {time}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Service Selection */}
-        <div className="space-y-3">
-          <label className="text-sm font-medium flex items-center gap-2">
-            <Scissors className="h-4 w-4 text-primary" />
-            Select Services
-          </label>
-          <div className="space-y-3">
-            {services.map((service) => (
-              <div key={service.id} className="flex items-center space-x-2 p-3 rounded-lg bg-muted/50">
-                <Checkbox
-                  id={service.id}
-                  checked={selectedServices.includes(service.id)}
-                  onCheckedChange={() => handleServiceToggle(service.id)}
-                />
-                <label
-                  htmlFor={service.id}
-                  className="flex-1 cursor-pointer flex justify-between items-center"
-                >
-                  <span className="font-medium">{service.name}</span>
-                  <span className="text-primary font-bold">€{service.price}</span>
-                </label>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Phone Number Input */}
-        {!showVerification && (
-          <div className="space-y-3">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <Phone className="h-4 w-4 text-primary" />
-              Phone Number
-            </label>
-            <div className="flex gap-2">
-              <Select value={countryCode} onValueChange={setCountryCode}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {countryCodes.map((country) => (
-                    <SelectItem key={country.code} value={country.code}>
-                      {country.code} {country.country}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                type="tel"
-                placeholder="Enter phone number"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                className="flex-1"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Verification Code Input */}
-        {showVerification && (
-          <div className="space-y-3">
-            <label className="text-sm font-medium flex items-center gap-2">
-              <Phone className="h-4 w-4 text-primary" />
-              Enter Verification Code
-            </label>
-            <div className="flex flex-col items-center space-y-4">
-              <p className="text-sm text-muted-foreground text-center">
-                We sent a 6-digit code to {countryCode} {phoneNumber}
-              </p>
-              <InputOTP
-                maxLength={6}
-                value={verificationCode}
-                onChange={setVerificationCode}
-              >
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
-            </div>
-          </div>
-        )}
-
-        {/* Price Summary */}
-        {selectedServices.length > 0 && (
-          <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
-            <div className="flex justify-between items-center">
-              <span className="font-medium">Total Price:</span>
-              <span className="text-2xl font-bold text-primary">€{totalPrice}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        {!showVerification ? (
-          <Button 
-            onClick={sendVerificationCode}
-            className="w-full h-12 text-lg font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
-            disabled={!selectedDate || !selectedTime || !selectedBarber || selectedServices.length === 0 || !phoneNumber.trim() || isLoading}
-          >
-            {isLoading ? "Sending Code..." : "Send Verification Code"}
-          </Button>
-        ) : (
-          <div className="space-y-3">
-            <Button 
-              onClick={verifyAndBooking}
-              className="w-full h-12 text-lg font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
-              disabled={verificationCode.length !== 6 || isLoading}
-            >
-              {isLoading ? "Verifying..." : "Verify & Book Appointment"}
-            </Button>
-            <Button 
-              onClick={() => {
-                setShowVerification(false);
-                setVerificationCode('');
-              }}
-              variant="outline"
-              className="w-full"
-              disabled={isLoading}
-            >
-              Change Phone Number
-            </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-export default BookingForm;
+                {format
